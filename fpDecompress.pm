@@ -25,7 +25,7 @@ package bitStringReader;
 use strict;
 use warnings;
 
-use Utils qw($debug_level warning display display_bytes);
+use My::Utils qw($debug_level warning display display_bytes);
     # This is a "pure perl" module.
     #
     # My Utils.pm module (not provided) merely provides some
@@ -34,14 +34,14 @@ use Utils qw($debug_level warning display display_bytes);
     # these variables and methods from the source without affecting
     # the behavior. Or you could implement your own versions!
 
-    
+
     my $dbg_cmp = 3;
-    
+
     sub new
     {
         my ($class,$data) = @_;
         display($dbg_cmp+1,1,"bitReader::new() data=".length($data)." bytes");
-        
+
         my $this = {};
         bless $this,$class;
         $this->{m_value} = $data;
@@ -51,24 +51,24 @@ use Utils qw($debug_level warning display display_bytes);
         $this->{m_iter_pos} = 0;
         return $this;
     }
-    
+
     sub EOF
     {
         my ($this) = @_;
         display($dbg_cmp+3,1,"bitReader::EOF()=$this->{m_eof}");
         return $this->{m_eof};
     }
-    
+
     sub Read
     {
         my ($this,$bits) = @_;
         display($dbg_cmp+2,1,"bitReader::Read($bits)");
-        
+
         if ($this->{m_buffer_size} < $bits)
         {
             if ($this->{m_iter_pos} < length($this->{m_value}))
             {
-                my $c = substr($this->{m_value},$this->{m_iter_pos}++,1); 
+                my $c = substr($this->{m_value},$this->{m_iter_pos}++,1);
                 $this->{m_buffer} |= ord($c) << $this->{m_buffer_size};
                 $this->{m_buffer_size} += 8;
             }
@@ -77,7 +77,7 @@ use Utils qw($debug_level warning display display_bytes);
                 $this->{m_eof} = 1;
             }
         }
-        
+
         my $mask = (1 << $bits) - 1;
         my $result = $this->{m_buffer} & $mask;
         $this->{m_buffer} >>= $bits;
@@ -87,11 +87,11 @@ use Utils qw($debug_level warning display display_bytes);
         {
             $this->{m_eof} = 1;
         }
-        
+
         display($dbg_cmp+2,1,"bitReader::Read() returning $result");
         return $result;
     }
-    
+
     sub Reset
     {
         my ($this) = @_;
@@ -111,20 +111,20 @@ use Utils qw($debug_level warning display display_bytes);
         display($dbg_cmp+2,1,"bitReader::AvailableBits() returning $retval");
         return $retval;
     }
-    
+
 
 
 package fpDecompress;
 use strict;
 use warnings;
-use Utils;
+use My::Utils;
 
 
     my $kMaxNormalValue = 7;
     my $kNormalBits = 3;
     my $kExceptionBits = 5;
-    
- 
+
+
     sub UnpackBits()
     {
         my ($this) = @_;
@@ -132,7 +132,7 @@ use Utils;
     	my $i = 0;
         my $value = 0;
         my $last_bit = 0;
-        
+
         for (my $j=0; $j<@{$this->{m_bits}}; $j++)
         {
             my $bit = $this->{m_bits}->[$j];
@@ -169,7 +169,7 @@ use Utils;
                 $i++;
             }
             push @{$this->{m_bits}},$bit;
-            
+
             # debugging
             if ($dbg_cmp<$debug_level)
             {
@@ -182,10 +182,10 @@ use Utils;
                 $last_i = $i;
             }
         }
-        
+
         display($dbg_cmp+1,2,"pushed bits($i) $debug_s");
         display($dbg_cmp,1,"ReadNormalBits got ".scalar(@{$this->{m_bits}})." 3-bit-chunks") ;
-        
+
         # c++ invariantly returned true
     }
 
@@ -194,11 +194,11 @@ use Utils;
     {
         my ($this,$reader) = @_;
         display($dbg_cmp,1,"fpDecompressor::ReadExceptionBits(".scalar(@{$this->{m_bits}}).")");
-        
+
         # debugging
         my $last_i = 0;
         my $debug_s = "";
-        
+
     	for (my $i=0; $i<@{$this->{m_bits}}; $i++)
         {
     		if ($this->{m_bits}->[$i] == $kMaxNormalValue)
@@ -210,7 +210,7 @@ use Utils;
                 }
     			my $add = $reader->Read($kExceptionBits);
                 $this->{m_bits}->[$i] += $add;
-                
+
                 if ($dbg_cmp<$debug_level)
                 {
                     if ($i != $last_i)
@@ -227,7 +227,7 @@ use Utils;
     	return 1;
     }
 
-    
+
     sub Decompress
     {
         my ($class,$fingerprint) = @_;
@@ -236,9 +236,9 @@ use Utils;
         my $this = {};
         bless $this,$class;
         $this->{m_bits} = [];
-        
+
         # first the fingerprint is base64 decoded
-        
+
         # my $decoded = decode_base64($fingerprint);
         my $decoded = chromaprint_base64decode($fingerprint);
         display($dbg_cmp,1,"length decoded=".length($decoded));
@@ -249,7 +249,7 @@ use Utils;
             warning(0,0,"fingerprint must be at least 4 bytes");
             return [];
         }
-    
+
         my $algorithm = ord(substr($decoded,0,1));
         my $num_ints =
             (ord(substr($decoded,1,1))<<16) |
@@ -257,7 +257,7 @@ use Utils;
             ord(substr($decoded,3,1));
 
         display($dbg_cmp,1,"Decompress() num_ints=$num_ints algorithm=$algorithm");
-        
+
         my $reader = bitStringReader->new($decoded);
     	$reader->Read(8);
         $reader->Read(8);
@@ -269,7 +269,7 @@ use Utils;
             warning(0,0,"fingerprint() is too short to decompress");
             return [];
         }
-        
+
         $this->{m_result} = [ (0) x $num_ints ];
 
     	$reader->Reset();
@@ -295,9 +295,9 @@ use Utils;
         my $rslt = $this->{m_result};
         for (my $i=0; $i<@$rslt; $i++)
         {
-            $rslt->[$i] = unpack("l",pack("l",$rslt->[$i]));         
-        }            
-        
+            $rslt->[$i] = unpack("l",pack("l",$rslt->[$i]));
+        }
+
         if ($dbg_cmp<=$debug_level)
         {
             for (my $i=0; $i<@$rslt; $i++)
@@ -307,16 +307,16 @@ use Utils;
         }
         return $this->{m_result};
     }
-    
-    
-    
-    
+
+
+
+
     #-------------------------------------------------------
     # lucas I don't think your base64decode is standard
     #-------------------------------------------------------
     # Got a different result from perl's MIME:Base64 routine
     # so I had to implement your "base64" decoder ... then it worked!
-    
+
     my $kBase64Chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
     my @kBase64CharsReversed = (
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -335,7 +335,7 @@ use Utils;
         $$pos++;
         return $c;
     }
-    
+
     sub chromaprint_base64decode
     {
         my ($encoded) = @_;
@@ -368,6 +368,6 @@ use Utils;
         return $dest;
 	}
 
-    
-    
+
+
 1;
